@@ -2,5 +2,6 @@ tools/
 .runtime/
 game/.godot/
 build/
+saves/
 docs/stracciatella-points-reference.h
 docs/stracciatella-license.txt

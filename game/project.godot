@@ -1,10 +1,22 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
 config_version=5
 
 [application]
+
 config/name="JA-like AI Prototype"
+config/version="0.2.0"
 run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.7")
 
 [display]
+
 window/size/viewport_width=1600
 window/size/viewport_height=1000
 window/size/window_width_override=1440
@@ -12,11 +24,6 @@ window/size/window_height_override=900
 window/stretch/mode="canvas_items"
 
 [rendering]
-renderer/rendering_method="forward_plus"
-renderer/rendering_method.mobile="mobile"
-textures/default_filters/use_nearest_mipmap_filter=false
-environment/defaults/default_clear_color=Color(0.14,0.17,0.17,1)
-anti_aliasing/quality/msaa_3d=2
 
-[audio]
-driver/enable_input=false
+anti_aliasing/quality/msaa_3d=2
+environment/defaults/default_clear_color=Color(0.14, 0.17, 0.17, 1)
