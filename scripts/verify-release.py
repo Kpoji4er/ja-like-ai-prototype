@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 root = Path(__file__).resolve().parent.parent
-archive = Path(sys.argv[1]) if len(sys.argv) > 1 else root / "build/JA-like-AI-Prototype-0.2.0-Windows-x64.zip"
+archive = Path(sys.argv[1]) if len(sys.argv) > 1 else root / "build/JA-like-AI-Prototype-0.3.0-Windows-x64.zip"
 destination = root / ".runtime" / ("release-verify-" + datetime.now().strftime("%Y%m%d-%H%M%S"))
 destination.mkdir(parents=True)
 with ZipFile(archive) as bundle:
@@ -35,12 +35,12 @@ with ZipFile(archive) as bundle:
 
 portable = destination / prefix
 reports = {}
-for label, args in [("tests", ["--headless", "--", "--test"]), ("render", ["--quit-after", "2000", "--", "--capture"])]:
+for label, args in [("tests", ["--headless", "--", "--test"]), ("campaign", ["--headless", "--", "--campaign-test"]), ("render", ["--quit-after", "2000", "--", "--capture"])]:
     result = subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(portable / "launch.ps1"), *args], cwd=portable, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=90)
     output = result.stdout + result.stderr
     (root / "build" / f"portable-{label}.log").write_text(output, encoding="utf-8")
     assert result.returncode == 0 and "ERROR:" not in output, output
-    assert ("ALL TESTS PASSED" if label == "tests" else "SCREENSHOT_SAVED") in output, output
+    assert {"tests": "ALL TESTS PASSED", "campaign": "CAMPAIGN TESTS: []", "render": "SCREENSHOT_SAVED"}[label] in output, output
     reports[label] = "passed"
 reports["portable_path"] = str(portable)
 reports["archive_entries"] = len(names)

@@ -1,5 +1,5 @@
 extends RefCounted
-const VERSION:=4
+const VERSION:=5
 const DEFAULT_PATH:="res://../saves/quicksave.json"
 
 func snapshot(game: Node) -> Dictionary:
@@ -18,7 +18,7 @@ func snapshot(game: Node) -> Dictionary:
 	for cell in game.doors: door_states.append([cell.x,cell.y,game.doors[cell].open])
 	var barrel_states: Array=[]
 	for cell in game.explosives.barrels: barrel_states.append([cell.x,cell.y,game.explosives.barrels[cell].intact])
-	return {"barrels":barrel_states,"doors":door_states,"version":VERSION,"turn":game.turn,"units":roster,"selected":game.selected.id,"rng_state":str(game.rng.state),"rng_seed":str(game.rng.seed),"explored":visited,"revealed":reveals,"shots":game.tactics.shots,"hits":game.tactics.hits,"camera":[game.camera_target.x,game.camera_target.z,game.yaw,game.zoom]}
+	return {"campaign":game.campaign.state(),"barrels":barrel_states,"doors":door_states,"version":VERSION,"turn":game.turn,"units":roster,"selected":game.selected.id,"rng_state":str(game.rng.state),"rng_seed":str(game.rng.seed),"explored":visited,"revealed":reveals,"shots":game.tactics.shots,"hits":game.tactics.hits,"camera":[game.camera_target.x,game.camera_target.z,game.yaw,game.zoom]}
 
 func save_game(game: Node, path: String=DEFAULT_PATH) -> String:
 	if game.busy or game.won: return "Сохранять можно в свой ход, пока операция не закончена."
@@ -44,7 +44,13 @@ func validate(data: Variant, game: Node) -> String:
 	if not data is Dictionary: return "Некорректный формат сохранения."
 	if data.get("version")!=VERSION: return "Версия сохранения не поддерживается."
 	if not integer(data.get("turn"),1,10000) or not integer(data.get("selected"),0,2): return "Повреждены параметры хода."
-	if not data.get("units") is Array or data.units.size()!=game.units.size(): return "Повреждён состав отряда."
+	var campaign: Variant=data.get("campaign")
+	if not campaign is Dictionary or not integer(campaign.get("mission"),0,3) or not integer(campaign.get("escort"),-1,2) or not integer(campaign.get("relay_hp"),0,150) or not valid_cell(campaign.get("civilian"),game): return "Повреждена кампания."
+	if not campaign.get("switches") is Array or campaign.switches.size()!=2: return "Повреждены узлы."
+	for value in campaign.switches:
+		if not value is bool: return "Повреждены узлы."
+	var roster_size: int=3+game.campaign.ENEMIES[int(campaign.mission)].size()
+	if not data.get("units") is Array or data.units.size()!=roster_size: return "Повреждён состав отряда."
 	if not data.get("doors") is Array or data.doors.size()!=game.doors.size(): return "Повреждены двери."
 	var saved_doors: Dictionary={}
 	for door in data.doors:
@@ -63,7 +69,8 @@ func validate(data: Variant, game: Node) -> String:
 	for i in range(data.units.size()):
 		var u: Variant=data.units[i]
 		if not u is Dictionary or u.get("id")!=i: return "Неверный идентификатор бойца."
-		var bounds: Dictionary={"hp":100,"ap":game.MAX_AP,"ammo":game.units[i].capacity,"reserve":game.units[i].capacity*2,"medkits":2,"grenades":1}
+		var capacity: int=[30,30,20][(i if i<3 else i-3)%3]
+		var bounds: Dictionary={"hp":100,"ap":game.MAX_AP,"ammo":capacity,"reserve":capacity*2,"medkits":2,"grenades":1}
 		for key in bounds:
 			if not integer(u.get(key),0,bounds[key]): return "Некорректное значение: "+key
 		if not u.get("watch") is bool or not u.get("crouched") is bool: return "Повреждена поза бойца."
@@ -80,9 +87,9 @@ func validate(data: Variant, game: Node) -> String:
 	if not data.get("explored") is Array or data.explored.size()>game.W*game.H: return "Повреждены данные разведки."
 	for cell in data.explored:
 		if not valid_cell(cell,game): return "Повреждена карта разведки."
-	if not data.get("revealed") is Array or data.revealed.size()>game.units.size(): return "Повреждены контакты."
+	if not data.get("revealed") is Array or data.revealed.size()>roster_size: return "Повреждены контакты."
 	for item in data.revealed:
-		if not item is Array or item.size()!=2 or not integer(item[0],0,game.units.size()-1) or not integer(item[1],0,10001): return "Повреждено время контакта."
+		if not item is Array or item.size()!=2 or not integer(item[0],0,roster_size-1) or not integer(item[1],0,10001): return "Повреждено время контакта."
 	if not data.get("camera") is Array or data.camera.size()!=4: return "Повреждена камера."
 	for value in data.camera:
 		if not (value is int or value is float) or not is_finite(float(value)): return "Повреждена камера."
@@ -98,8 +105,17 @@ func load_game(game: Node, path: String=DEFAULT_PATH) -> String:
 	file.close()
 	if parse_error!=OK: return "Файл сохранения повреждён; текущая игра не изменена."
 	var data: Variant=parser.data
+	if data is Dictionary and data.get("version")==4:
+		data.version=VERSION
+		data.campaign={"mission":0,"escort":-1,"civilian":[25,6],"relay_hp":150,"switches":[false,false]}
+	var previous: Dictionary={}
+	if data is Dictionary and data.get("campaign") is Dictionary and integer(data.campaign.get("mission"),0,3) and int(data.campaign.mission)!=game.sector_index:
+		previous=game.stage_sector(int(data.campaign.mission))
 	var error:=validate(data,game)
-	if error!="": return error
+	if error!="":
+		if not previous.is_empty(): game.rollback_sector(previous)
+		return error
+	if not previous.is_empty(): game.commit_sector(previous)
 	# Apply only after the entire payload has passed validation.
 	game.clear_path()
 	if is_instance_valid(game.outcome_panel):
@@ -109,6 +125,10 @@ func load_game(game: Node, path: String=DEFAULT_PATH) -> String:
 	game.enemy_turn=false
 	game.aimed=false
 	game.turn=int(data.turn)
+	if game.campaign.index!=int(data.campaign.mission):
+		game.campaign.index=int(data.campaign.mission)
+		game.rebuild_roster()
+	game.campaign.restore(data.campaign)
 	for door in data.doors: game.set_door_state(Vector2i(int(door[0]),int(door[1])),door[2])
 	for barrel in data.barrels: game.explosives.set_intact(Vector2i(int(barrel[0]),int(barrel[1])),barrel[2])
 	for i in range(data.units.size()):

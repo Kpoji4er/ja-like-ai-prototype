@@ -88,6 +88,11 @@ func build(owner_game: Node):
 	gm.set_shader_parameter("ground_color",texture_file("ground-color.jpg"))
 	gm.set_shader_parameter("ground_normal",texture_file("ground-normal.jpg"))
 	ground.material_override = gm
+	if game.sector_index>0:
+		gm.set_shader_parameter("road_axis",1.0 if game.sector_index==1 else 0.0)
+		gm.set_shader_parameter("road_strength",0.0 if game.sector_index==2 else 1.0)
+		load("res://sectors.gd").new().build(self,game,game.sector_index)
+		return
 	# A road through a poor Arulcan town, with damaged paint and dusty shoulders.
 	for i in range(-13,14):
 		box(Vector3(i*2.7,0.004,0),Vector3(1.15,0.012,0.10),"a89968")

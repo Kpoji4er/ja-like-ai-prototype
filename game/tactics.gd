@@ -195,7 +195,7 @@ func ai_turn(enemy: Dictionary):
 	enemy.watch=false
 	var target: Dictionary=choose_ai_target(enemy)
 	if enemy.ammo==0: reload_weapon(enemy,true)
-	var destination: Vector2i=enemy.alert
+	var destination: Vector2i=game.campaign.relay_cell if game.campaign.index==2 else enemy.alert
 	if destination.x<0:
 		var patrol_points: Array[Vector2i]=[Vector2i(17,12),Vector2i(23,15),Vector2i(18,8),Vector2i(25,18)]
 		destination=patrol_points[(enemy.index+game.turn)%patrol_points.size()]
@@ -214,7 +214,7 @@ func ai_turn(enemy: Dictionary):
 		var score: float=-Vector2(cell).distance_to(Vector2(destination))
 		var hypothetical: Dictionary=enemy.duplicate()
 		hypothetical.cell=cell
-		if not target.is_empty():
+		if not target.is_empty() and game.campaign.index!=2:
 			score=game.hit_chance(hypothetical,target)*0.17-Vector2(cell).distance_to(Vector2(target.cell))*0.15
 			if game.protected_from(hypothetical,target): score+=5
 			if Vector2(cell).distance_to(Vector2(target.cell))<3: score-=5
@@ -232,7 +232,8 @@ func ai_turn(enemy: Dictionary):
 		update_visibility()
 		if enemy.visible: game.note("%s открывает дверь." % enemy.name)
 	target=choose_ai_target(enemy)
-	if not target.is_empty() and enemy.ammo>0 and enemy.ap>=6:
+	var attacked_relay: bool=game.campaign.attack_relay(enemy)
+	if not attacked_relay and not target.is_empty() and enemy.ammo>0 and enemy.ap>=6:
 		await game.shoot(enemy,target,true)
 	if not game.won and enemy.ap>=WATCH_AP and enemy.ammo>0:
 		enemy.ap-=WATCH_AP

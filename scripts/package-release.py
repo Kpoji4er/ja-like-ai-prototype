@@ -4,14 +4,14 @@ from zipfile import ZipFile, ZIP_DEFLATED
 import hashlib
 
 root = Path(__file__).resolve().parent.parent
-version = "0.2.0"
+version = "0.3.0"
 folder = f"JA-like-AI-Prototype-{version}-Windows-x64"
 archive = root / "build" / f"{folder}.zip"
 files = [root / name for name in ("README.md", "START.cmd", "START-OPENGL.cmd", "DEMO.cmd", "launch.ps1")]
 extensions = {".gd", ".gdshader", ".godot", ".tscn", ".uid", ".jpg"}
 files += sorted(p for p in (root / "game").rglob("*") if p.is_file() and ".godot" not in p.parts and p.suffix in extensions)
 files += sorted((root / "tools" / "godot").glob("*.exe"))
-files += [root / "docs" / name for name in ("godot-license.txt", "godot-third-party-notices.txt", "preview.png", "interior.png", "ASSETS.md", "CHANGELOG.md", "QA-v0.2.0.md")]
+files += [root / "docs" / name for name in ("godot-license.txt", "godot-third-party-notices.txt", "preview.png", "interior.png", "ASSETS.md", "CHANGELOG.md", "QA-v0.2.0.md", "QA-v0.3.0.md", "mission-1.png", "mission-2.png", "mission-3.png", "mission-4.png")]
 files += [root / "scripts" / name for name in ("log-task.ps1", "setup-godot.ps1")]
 archive.parent.mkdir(exist_ok=True)
 with ZipFile(archive, "w", compression=ZIP_DEFLATED, compresslevel=6) as bundle:

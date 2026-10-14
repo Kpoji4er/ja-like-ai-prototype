@@ -56,6 +56,12 @@ var camera_shake:=0.0
 var previous_target:=Vector3.ZERO
 var tactical_overlay: MeshInstance3D
 var explosives: Node3D
+var sector_index:=0
+var campaign: Node3D
+var mission_heading: Label
+var mission_goal: Label
+var sector_heading: Label
+var minimap_heading: Label
 
 func to_world(cell: Vector2i) -> Vector3:
 	return Vector3((cell.x-(W-1)*0.5)*C,0,(cell.y-(H-1)*0.5)*C)
@@ -65,29 +71,18 @@ func to_cell(p: Vector3) -> Vector2i:
 
 func _ready():
 	rng.seed = 2026
-	test_mode = "--test" in OS.get_cmdline_user_args() or "--soak" in OS.get_cmdline_user_args()
+	test_mode = "--campaign-soak" in OS.get_cmdline_user_args() or "--campaign-test" in OS.get_cmdline_user_args() or "--test" in OS.get_cmdline_user_args() or "--soak" in OS.get_cmdline_user_args()
 	demo_mode="--demo" in OS.get_cmdline_user_args()
 	input_test_mode="--ui-test" in OS.get_cmdline_user_args()
-	capture_mode = "--capture" in OS.get_cmdline_user_args() or "--gallery" in OS.get_cmdline_user_args() or "--perf" in OS.get_cmdline_user_args() or demo_mode
+	capture_mode = "--campaign-gallery" in OS.get_cmdline_user_args() or "--capture" in OS.get_cmdline_user_args() or "--gallery" in OS.get_cmdline_user_args() or "--perf" in OS.get_cmdline_user_args() or demo_mode
 	if capture_mode: get_viewport().gui_disable_input=true
 	setup_environment()
-	world = load("res://world.gd").new()
-	add_child(world)
-	world.build(self)
-	var props: Node3D=load("res://scene_details.gd").new()
-	world.add_child(props)
-	props.build(world,self)
-	explosives=load("res://explosives.gd").new()
-	add_child(explosives)
-	explosives.initialize(self)
-	world.batch_static()
-	add_unit("ИВАН",0,Vector2i(6,16),0,88)
-	add_unit("ФОКС",0,Vector2i(8,15),1,80)
-	add_unit("АЙС",0,Vector2i(5,14),2,85)
-	add_unit("ПАТРУЛЬ",1,Vector2i(19,12),0,68)
-	add_unit("СТРЕЛОК",1,Vector2i(23,15),1,72)
-	add_unit("СЕРЖАНТ",1,Vector2i(18,8),2,78)
-	add_unit("СОЛДАТ",1,Vector2i(25,18),3,65)
+	campaign=load("res://campaign.gd").new()
+	add_child(campaign)
+	campaign.initialize(self)
+	stage_sector(campaign.index)
+	campaign.populate()
+	campaign.setup_visuals()
 	selected = units[0]
 	effects=load("res://effects.gd").new()
 	add_child(effects)
@@ -104,9 +99,15 @@ func _ready():
 	add_child(tactical_overlay)
 	tactical_overlay.initialize(self)
 	if not test_mode: setup_audio()
-	note("Омерта. Разведайте сектор и уничтожьте патруль. [F1] — брифинг.")
+	note("Миссия %d / 4: %s. [F1] — задача и брифинг, [J] — взаимодействие." % [campaign.index+1,campaign.TITLES[campaign.index]])
 	refresh_ui()
-	if "--soak" in OS.get_cmdline_user_args():
+	if "--campaign-soak" in OS.get_cmdline_user_args():
+		await load("res://campaign_tests.gd").new().soak(self)
+	elif "--campaign-test" in OS.get_cmdline_user_args():
+		await load("res://campaign_tests.gd").new().run(self)
+	elif "--campaign-gallery" in OS.get_cmdline_user_args():
+		await load("res://campaign_tests.gd").new().gallery(self)
+	elif "--soak" in OS.get_cmdline_user_args():
 		await load("res://soak_tests.gd").new().run(self)
 	elif test_mode:
 		if Engine.has_meta("restart_test_pending"):
@@ -270,16 +271,17 @@ func setup_ui():
 	var top := panel(Vector2(24,22),Vector2(1552,72),root)
 	label("JA",Vector2(18,5),42,"dfc38a",top)
 	label("JA-LIKE  /  AI PROTOTYPE",Vector2(117,12),18,"e2d9bb",top)
-	label("0.2  /  ОПЕРАЦИЯ «ТИХИЙ ЭФИР»",Vector2(117,38),12,"8f9b88",top)
-	label("A9  /  ОМЕРТА",Vector2(530,12),21,"e2d9bb",top)
+	label("0.3  /  КАМПАНИЯ «ОМЕРТА»",Vector2(117,38),12,"8f9b88",top)
+	sector_heading=label("A9  /  ОМЕРТА",Vector2(530,12),21,"e2d9bb",top)
 	label("СЕВЕРНЫЙ СЕКТОР    •    17:42",Vector2(530,40),12,"a8ae97",top)
 	turn_label = label("ХОД 01  /  ВАШ ОТРЯД",Vector2(1125,22),19,"d8be80",top)
-	var mission := panel(Vector2(24,110),Vector2(346,94),root,"19231cdb")
-	label("ОПЕРАЦИЯ «ТИХИЙ ЭФИР»",Vector2(16,12),16,"dfc38a",mission)
-	label("Найти и обезвредить патруль",Vector2(16,40),17,"e3dfc9",mission)
+	var mission := panel(Vector2(24,110),Vector2(655,94),root,"19231cdb")
+	button("ЗАДАЧА [J]",Vector2(510,8),Vector2(132,29),campaign.interact,mission)
+	mission_heading=label("ОПЕРАЦИЯ",Vector2(16,12),16,"dfc38a",mission)
+	mission_goal=label("Задача",Vector2(16,40),17,"e3dfc9",mission)
 	status = label("Противников в секторе: 4",Vector2(16,66),13,"a4b096",mission)
 	var minimap_panel := panel(Vector2(1332,110),Vector2(244,220),root)
-	label("РАЗВЕДКА  /  A9",Vector2(14,9),13,"c5b88e",minimap_panel)
+	minimap_heading=label("РАЗВЕДКА  /  A9",Vector2(14,9),13,"c5b88e",minimap_panel)
 	map = load("res://minimap.gd").new()
 	map.game = self
 	map.position = Vector2(14,38)
@@ -389,7 +391,11 @@ func refresh_ui():
 		u.label.visible=u.hp>0 and u.visible and not cinematic
 		u.ring.scale = Vector3.ONE*(1.23 if u==selected else 0.82)
 		if u.hp>0: u.label.text = u.name+"\n"+("◉ ПРИКРЫТИЕ" if u.watch else str(u.hp)+" HP")
-	status.text = "Контактов: %d  •  Устранено: %d / 4" % [enemies,tactics.kills]
+	status.text=campaign.objective_text()
+	mission_heading.text="%d / 4  •  %s" % [campaign.index+1,campaign.TITLES[campaign.index]]
+	mission_goal.text=campaign.GOALS[campaign.index]
+	sector_heading.text=campaign.SECTORS[campaign.index]
+	minimap_heading.text="РАЗВЕДКА / "+campaign.SECTORS[campaign.index].split(" /")[0]
 	turn_label.text = "ХОД %02d  /  %s" % [turn,"ПРОТИВНИК" if enemy_turn else "ВАШ ОТРЯД"]
 	for i in range(cards.size()):
 		var u := units[i]
@@ -476,6 +482,7 @@ func _unhandled_input(event: InputEvent):
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.physical_keycode:
 			KEY_SPACE: end_turn()
+			KEY_J: campaign.interact()
 			KEY_C: toggle_crouch()
 			KEY_F: toggle_aim()
 			KEY_B: tactics.set_mode("burst")
@@ -679,6 +686,7 @@ func move_unit(unit: Dictionary,path: Array[Vector2i], ai: bool = false):
 		leg_r.rotation.x=-leg_l.rotation.x
 		await tween.finished
 		unit.cell=path[i]
+		campaign.moved(unit)
 		tactics.update_visibility()
 		await tactics.trigger_reactions(unit)
 		if unit.hp<=0 or won: break
@@ -687,6 +695,7 @@ func move_unit(unit: Dictionary,path: Array[Vector2i], ai: bool = false):
 	unit.node.get_node("LegR").rotation.x=0
 	if not ai:
 		busy=false
+		check_outcome()
 		hover_cell=Vector2i(-99,-99)
 	refresh_ui()
 
@@ -855,6 +864,7 @@ func end_turn():
 	enemy_turn=false
 	tactics.update_visibility()
 	ui_invalidate()
+	check_outcome()
 	if not won: note("Ваш ход. ОД восстановлены. [O] — прикрыть движение.")
 	refresh_ui()
 
@@ -866,17 +876,24 @@ func check_outcome():
 		if u.hp>0:
 			if u.team==0: allies+=1
 			else: enemies+=1
-	if enemies==0 or allies==0:
+	var result: int=campaign.result()
+	if result!=0:
 		won=true
-		outcome_panel=panel(Vector2(450,300),Vector2(700,290),hud)
-		label("СЕКТОР ОСВОБОЖДЁН" if enemies==0 else "ОПЕРАЦИЯ ПРЕРВАНА",Vector2(35,25),30,"e7cc8e",outcome_panel)
-		label("Омерта под контролем A.I.M." if enemies==0 else "Отряд потерян. Используйте укрытия и реакции.",Vector2(35,76),19,"c5cdb1",outcome_panel)
-		label("Ходов: %d    •    Выжило: %d / 3\nВыстрелов: %d    •    Попаданий: %d" % [turn,allies,tactics.shots,tactics.hits],Vector2(35,116),18,"d3c19a",outcome_panel)
-		button("НОВАЯ ОПЕРАЦИЯ",Vector2(35,206),Vector2(300,48),restart,outcome_panel)
-		button("ЗАГРУЗИТЬ  [F9]",Vector2(350,206),Vector2(315,48),quickload,outcome_panel)
+		campaign.victory=result==1
+		outcome_panel=panel(Vector2(400,290),Vector2(800,320),hud)
+		var title: String=("КАМПАНИЯ ЗАВЕРШЕНА" if campaign.index==3 else "МИССИЯ ВЫПОЛНЕНА") if result==1 else "МИССИЯ ПРОВАЛЕНА"
+		label(title,Vector2(35,25),30,"e7cc8e",outcome_panel)
+		label(campaign.TITLES[campaign.index],Vector2(35,72),20,"c5cdb1",outcome_panel)
+		label("Ходов: %d  •  Выжило: %d / 3  •  Попаданий: %d\nПеред следующей миссией отряд полностью пополняется." % [turn,allies,tactics.hits],Vector2(35,114),17,"d3c19a",outcome_panel)
+		if result==1 and campaign.index<3:
+			button("СЛЕДУЮЩАЯ МИССИЯ →",Vector2(35,205),Vector2(355,48),campaign.next_mission,outcome_panel)
+		else:
+			button("ПОВТОРИТЬ МИССИЮ",Vector2(35,205),Vector2(355,48),restart,outcome_panel)
+		button("НОВАЯ КАМПАНИЯ" if result==1 and campaign.index==3 else "ЗАГРУЗИТЬ  [F9]",Vector2(410,205),Vector2(350,48),campaign.new_campaign if result==1 and campaign.index==3 else quickload,outcome_panel)
 
 func restart():
 	if busy: return
+	Engine.set_meta("mission_index",campaign.index)
 	get_tree().reload_current_scene()
 
 func toggle_menu():
@@ -899,15 +916,16 @@ func toggle_menu():
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	menu_panel.add_child(shade)
 	var p:=panel(Vector2(380,140),Vector2(840,690),menu_panel,"17201fff")
-	label("ОПЕРАЦИЯ «ТИХИЙ ЭФИР»",Vector2(32,24),30,"e6c98b",p)
-	label("ОМЕРТА / A9   •   ТАКТИЧЕСКИЙ БРИФИНГ",Vector2(32,72),16,"a3b296",p)
-	label("Патруль перекрыл дорогу. Разведайте сектор и устраните всех противников.\nВраги видны только в пределах обзора отряда. Здания закрывают обзор.\nОткрытая дорога опасна: двигайтесь от укрытия к укрытию.",Vector2(32,116),17,"ddd7bf",p)
-	label("F — прицел (8 ОД)       B — очередь (9 ОД, 3 патрона)\nO — прикрытие: резерв 6 ОД, один выстрел на движение врага\nR — перезарядка (5 ОД)       C — смена позы (2 ОД)\nH — аптечка, затем ЛКМ по бойцу рядом (6 ОД)\nG — граната, затем ЛКМ по земле (8 ОД). Опасна и для своих!\nПробел — конец хода.   F5 / F9 — сохранить / загрузить.\nWASD / Q/E / колесо — камера.   F2 — фото.   F12 — снимок.\nT — скрыть крыши.   V — сетка ОД.   F11 — полный экран.\nДверь: ЛКМ рядом / 2 ОД.   Красная бочка: ЛКМ / взрыв / 6 ОД.",Vector2(32,214),18,"c7cdb5",p)
+	label("%d / 4  •  %s" % [campaign.index+1,campaign.TITLES[campaign.index]],Vector2(32,24),24,"e6c98b",p)
+	label(campaign.SECTORS[campaign.index]+"   •   БРИФИНГ",Vector2(32,72),16,"a3b296",p)
+	label(campaign.BRIEFINGS[campaign.index],Vector2(32,116),17,"ddd7bf",p)
+	label("F — прицел (8 ОД)       B — очередь (9 ОД, 3 патрона)\nO — прикрытие: резерв 6 ОД, один выстрел на движение врага\nR — перезарядка (5 ОД)       C — смена позы (2 ОД)\nH — аптечка, затем ЛКМ по бойцу рядом (6 ОД)\nG — граната, затем ЛКМ по земле (8 ОД). Опасна и для своих!\nПробел — конец хода.   F5 / F9 — сохранить / загрузить.\nWASD / Q/E / колесо — камера.   F2 — фото.   F12 — снимок.\nT — скрыть крыши.   V — сетка ОД.   F11 — полный экран.\nДверь: ЛКМ рядом / 2 ОД.   Бочка: ЛКМ / 6 ОД.   J — задача / 4 ОД.",Vector2(32,214),18,"c7cdb5",p)
 	label("Фокс лечит на 50 HP, остальные — на 35. Прикрытие действует один ход.\nЗдоровье, патроны, снаряжение и разведка сохраняются вместе с боем.",Vector2(32,478),16,"a3b296",p)
 	button("СОХРАНИТЬ  [F5]",Vector2(32,552),Vector2(242,48),quicksave,p)
 	button("ЗАГРУЗИТЬ  [F9]",Vector2(286,552),Vector2(242,48),quickload,p)
-	button("НАЧАТЬ ЗАНОВО",Vector2(540,552),Vector2(268,48),restart,p)
-	button("ПРОДОЛЖИТЬ ОПЕРАЦИЮ  [ESC]",Vector2(32,612),Vector2(776,48),toggle_menu,p)
+	button("ПОВТОРИТЬ МИССИЮ",Vector2(540,552),Vector2(268,48),restart,p)
+	button("ПРОДОЛЖИТЬ ОПЕРАЦИЮ  [ESC]",Vector2(32,612),Vector2(496,48),toggle_menu,p)
+	button("НОВАЯ КАМПАНИЯ",Vector2(540,612),Vector2(268,48),campaign.new_campaign,p)
 
 func quicksave():
 	var error: String=save_system.save_game(self,save_path)
@@ -1027,3 +1045,46 @@ func run_combat_tests(failures: Array[String]):
 		actor.ap=MAX_AP
 		await shoot(actor,victim)
 	if victim.hp!=0 or not won: failures.append("damage/death/victory")
+
+func rebuild_roster():
+	for unit in units: unit.node.free()
+	units.clear()
+	campaign.populate()
+	selected=units[0]
+	tactics.initialize(self)
+
+# Stage geometry synchronously so a cross-sector save can be validated before commit.
+func stage_sector(mission: int) -> Dictionary:
+	var previous: Dictionary={"world":world,"explosives":explosives,"solid":solid,"cover":cover,"doors":doors,"windows":windows,"index":sector_index}
+	sector_index=mission
+	solid={}
+	cover={}
+	doors={}
+	windows={}
+	world=load("res://world.gd").new()
+	add_child(world)
+	world.build(self)
+	if mission==0:
+		var props: Node3D=load("res://scene_details.gd").new()
+		world.add_child(props)
+		props.build(world,self)
+	explosives=load("res://explosives.gd").new()
+	add_child(explosives)
+	explosives.initialize(self)
+	world.batch_static()
+	return previous
+
+func commit_sector(previous: Dictionary):
+	if is_instance_valid(previous.world): previous.world.free()
+	if is_instance_valid(previous.explosives): previous.explosives.free()
+
+func rollback_sector(previous: Dictionary):
+	world.free()
+	explosives.free()
+	world=previous.world
+	explosives=previous.explosives
+	solid=previous.solid
+	cover=previous.cover
+	doors=previous.doors
+	windows=previous.windows
+	sector_index=previous.index
