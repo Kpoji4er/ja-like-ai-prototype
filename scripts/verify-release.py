@@ -8,7 +8,7 @@ import subprocess
 import sys
 
 root = Path(__file__).resolve().parent.parent
-archive = Path(sys.argv[1]) if len(sys.argv) > 1 else root / "build/JA-like-AI-Prototype-0.3.0-Windows-x64.zip"
+archive = Path(sys.argv[1]) if len(sys.argv) > 1 else root / "build/JA-like-AI-Prototype-0.3.1-Windows-x64.zip"
 destination = root / ".runtime" / ("release-verify-" + datetime.now().strftime("%Y%m%d-%H%M%S"))
 destination.mkdir(parents=True)
 with ZipFile(archive) as bundle:

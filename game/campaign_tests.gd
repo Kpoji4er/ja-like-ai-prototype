@@ -177,6 +177,9 @@ func gallery(game: Node):
 		if mission==3: game.world.roofs_forced_hidden=true
 		game.tactics.update_visibility()
 		await capture.shot(game,"mission-%d" % (mission+1))
+	game.camera_target=game.to_world(Vector2i(10,21))
+	game.zoom=23
+	await capture.shot(game,"fence-fix")
 	game.get_tree().quit()
 
 

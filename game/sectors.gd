@@ -45,9 +45,9 @@ func build(w: Node, g: Node, mission: int):
 		w.building(Vector2i(20,15),Vector2i(7,5),"a59c7f","BARRACAS",false)
 		# Compound perimeter with two entrances; interior walls split the approach.
 		for x in range(9,30):
-			if x not in [14,15,25,26]: w.low_wall(Vector2i(x,23))
+			if x not in [14,15,25,26]: w.low_wall(Vector2i(x,23),0.0,x==9)
 		for y in range(2,23):
-			if y not in [11,12,13,20]: w.low_wall(Vector2i(9,y))
+			if y not in [11,12,13,20]: w.low_wall(Vector2i(9,y),PI/2)
 		for cell in [Vector2i(14,18),Vector2i(15,18),Vector2i(16,14),Vector2i(17,14),Vector2i(20,10),Vector2i(28,14),Vector2i(28,15)]: w.sandbags(cell)
 		w.car(Vector2i(12,20),"4c5e4b",false)
 		w.car(Vector2i(25,11),"58674e",false)

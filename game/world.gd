@@ -103,7 +103,7 @@ func build(owner_game: Node):
 	building(Vector2i(7,18),Vector2i(6,5),"b99c72","BAR  EL  PASO",false)
 	# Broken compound wall and sandbag positions define traversable tactical lanes.
 	for cell in [Vector2i(17,7),Vector2i(18,7),Vector2i(19,7),Vector2i(27,16),Vector2i(27,17),Vector2i(27,18),Vector2i(18,19),Vector2i(19,19)]:
-		low_wall(cell)
+		low_wall(cell,PI/2 if cell.x==27 else 0.0)
 	for cell in [Vector2i(14,10),Vector2i(15,10),Vector2i(19,15),Vector2i(20,15),Vector2i(4,18),Vector2i(5,18),Vector2i(23,19)]:
 		sandbags(cell)
 	car(Vector2i(16,16),"657b70",false)
@@ -155,12 +155,20 @@ func build(owner_game: Node):
 func building(cell: Vector2i, cells: Vector2i, wall_color: String, title: String, flat: bool):
 	load("res://buildings.gd").new().build(self,game,cell,cells,wall_color,title,flat)
 
-func low_wall(cell: Vector2i):
+func low_wall(cell: Vector2i, angle: float=0.0, corner: bool=false):
 	game.cover[cell] = true
 	var p: Vector3 = game.to_world(cell)
-	box(p+Vector3(0,0.65,0),Vector3(game.C,1.3,0.45),"aaa080")
-	box(p+Vector3(0,1.32,0),Vector3(game.C+0.08,0.13,0.53),"c1b697")
-	for i in range(3): box(p+Vector3(-0.6+i*0.55,0.32,0.234),Vector3(0.42,0.18,0.03),"86795d")
+	var pieces: Array[MeshInstance3D]=[]
+	pieces.append(box(p+Vector3(0,0.65,0),Vector3(game.C,1.3,0.45),"aaa080"))
+	pieces.append(box(p+Vector3(0,1.32,0),Vector3(game.C+0.08,0.13,0.53),"c1b697"))
+	for i in range(3): pieces.append(box(p+Vector3(-0.6+i*0.55,0.32,0.234),Vector3(0.42,0.18,0.03),"86795d"))
+	# Join the perpendicular run at the corner without extending into a free cell.
+	if corner:
+		pieces.append(box(p+Vector3(0,0.65,-game.C/4),Vector3(0.45,1.3,game.C/2),"aaa080"))
+		pieces.append(box(p+Vector3(0,1.32,-game.C/4),Vector3(0.53,0.13,game.C/2+0.04),"c1b697"))
+	for piece in pieces:
+		piece.position=p+(piece.position-p).rotated(Vector3.UP,angle)
+		piece.rotation.y=angle
 
 func sandbags(cell: Vector2i):
 	game.cover[cell] = true

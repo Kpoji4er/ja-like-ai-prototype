@@ -4,7 +4,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 import hashlib
 
 root = Path(__file__).resolve().parent.parent
-version = "0.3.0"
+version = "0.3.1"
 folder = f"JA-like-AI-Prototype-{version}-Windows-x64"
 archive = root / "build" / f"{folder}.zip"
 files = [root / name for name in ("README.md", "START.cmd", "START-OPENGL.cmd", "DEMO.cmd", "launch.ps1")]
