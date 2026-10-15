@@ -47,9 +47,9 @@ func build(world: Node, game: Node, cell: Vector2i, cells: Vector2i, wall_color:
 			if window:
 				g.windows[at]=true
 				g.cover[at]=true
-				segment(wall_pos,width,0.76,0.4,plaster,upper)
+				segment(wall_pos,width,0.76,0.4,plaster,w)
 				segment(wall_pos,width,2.60,0.86,plaster,upper)
-				window_frame(wall_pos,front_back,upper)
+				window_frame(wall_pos,front_back,w)
 			else: segment(wall_pos,width,1.80,2.48,plaster,upper)
 	# Frieze and a readable sign are part of the automatic cutaway.
 	w.box(center+Vector3(0,2.98,0),Vector3(sx+0.14,0.18,sz+0.14),"d4c7a5",upper)
@@ -93,9 +93,11 @@ func window_frame(pos: Vector3, front: bool, parent: Node):
 	var frame:=Node3D.new()
 	parent.add_child(frame)
 	frame.position=pos
+	# Window frames stay visible in cutaway mode to identify firing apertures.
+	w.box(Vector3(0,0.93,0),Vector3(1.78,0.12,0.46),"dfd1aa",frame)
 	if not front: frame.rotation.y=PI/2
-	for x in [-0.77,0.77]: w.box(Vector3(x,1.57,0),Vector3(0.13,1.28,0.3),"d5c7a2",frame)
-	for y in [0.98,2.15]: w.box(Vector3(0,y,0),Vector3(1.65,0.13,0.3),"d5c7a2",frame)
+	for x in [-0.77,0.77]: w.box(Vector3(x,1.57,0),Vector3(0.13,1.28,0.3),"597069",frame)
+	for y in [0.98,2.15]: w.box(Vector3(0,y,0),Vector3(1.65,0.13,0.3),"597069",frame)
 	w.box(Vector3(0,1.57,0),Vector3(0.055,1.13,0.09),"6e7c66",frame)
 	w.box(Vector3(0,1.56,0),Vector3(1.45,0.045,0.09),"6e7c66",frame)
 	for side in [-1,1]: w.box(Vector3(side*0.94,1.57,0.05),Vector3(0.22,1.3,0.1),"597069",frame)

@@ -159,13 +159,16 @@ func low_wall(cell: Vector2i, angle: float=0.0, corner: bool=false):
 	game.cover[cell] = true
 	var p: Vector3 = game.to_world(cell)
 	var pieces: Array[MeshInstance3D]=[]
-	pieces.append(box(p+Vector3(0,0.65,0),Vector3(game.C,1.3,0.45),"aaa080"))
-	pieces.append(box(p+Vector3(0,1.32,0),Vector3(game.C+0.08,0.13,0.53),"c1b697"))
-	for i in range(3): pieces.append(box(p+Vector3(-0.6+i*0.55,0.32,0.234),Vector3(0.42,0.18,0.03),"86795d"))
-	# Join the perpendicular run at the corner without extending into a free cell.
+	var span: float=game.C/2+0.225 if corner else game.C
+	var shift: float=(game.C/2-0.225)/2 if corner else 0.0
+	pieces.append(box(p+Vector3(shift,0.65,0),Vector3(span,1.3,0.45),"aaa080"))
+	pieces.append(box(p+Vector3(shift,1.32,0),Vector3(span+0.08,0.13,0.53),"c1b697"))
+	for x in ([0.05,0.60] if corner else [-0.6,-0.05,0.5]):
+		pieces.append(box(p+Vector3(x,0.32,0.234),Vector3(0.42,0.18,0.03),"86795d"))
+	# Two flush arms form an L: no projecting stub or overlapping coplanar caps.
 	if corner:
-		pieces.append(box(p+Vector3(0,0.65,-game.C/4),Vector3(0.45,1.3,game.C/2),"aaa080"))
-		pieces.append(box(p+Vector3(0,1.32,-game.C/4),Vector3(0.53,0.13,game.C/2+0.04),"c1b697"))
+		pieces.append(box(p+Vector3(0,0.65,-(game.C/2+0.225)/2),Vector3(0.45,1.3,game.C/2-0.225),"aaa080"))
+		pieces.append(box(p+Vector3(0,1.32,-(game.C/2+0.04+0.265)/2),Vector3(0.53,0.13,game.C/2+0.04-0.265),"c1b697"))
 	for piece in pieces:
 		piece.position=p+(piece.position-p).rotated(Vector3.UP,angle)
 		piece.rotation.y=angle
